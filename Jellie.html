@@ -1,0 +1,309 @@
+<script>
+(()=>{'use strict';
+
+const $ = s => document.querySelector(s);
+const eyes = [...document.querySelectorAll('.eye')];
+const irises = [...document.querySelectorAll('.iris')];
+const mouth = $('#mouth');
+const status = $('#status');
+const mode = $('#mode');
+const video = $('#video');
+
+let key = '';
+let fd = null;
+let stream = null;
+let busy = false;
+let tx = 0, ty = 0, cx = 0, cy = 0;
+let rec = null;
+let listening = false;
+let asking = false;
+let speaking = false;
+let wakeMode = true;
+let restartTimer = null;
+
+/* -------------------- UI -------------------- */
+
+function sayStatus(t){ status.textContent = t }
+
+function look(x,y){
+  tx = Math.max(-1, Math.min(1, x));
+  ty = Math.max(-1, Math.min(1, y));
+}
+
+function anim(){
+  cx += (tx - cx) * .14;
+  cy += (ty - cy) * .14;
+  irises.forEach(i => {
+    i.style.transform = `translate(calc(-50% + ${cx*34}%), calc(-50% + ${cy*27}%))`;
+  });
+  requestAnimationFrame(anim);
+}
+anim();
+
+function blink(){
+  eyes.forEach(e => e.classList.add('blink'));
+  setTimeout(() => eyes.forEach(e => e.classList.remove('blink')), 150);
+}
+(function bl(){
+  setTimeout(() => { blink(); bl() }, 2800 + Math.random()*3800);
+})();
+
+/* -------------------- Speech -------------------- */
+
+function speak(t, after){
+  speaking = true;
+  stopRecognition();
+  sayStatus(t);
+
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = 'nl-NL';
+  u.rate = .95;
+  u.pitch = .86;
+
+  u.onstart = () => mouth.classList.add('talk');
+
+  u.onend = () => {
+    mouth.classList.remove('talk');
+    speaking = false;
+
+    // Chrome-bug fix: check if speech is REALLY done
+    if (speechSynthesis.speaking) return;
+
+    setTimeout(() => after ? after() : startWake(), 900);
+  };
+
+  u.onerror = u.onend;
+
+  speechSynthesis.speak(u);
+}
+
+/* -------------------- Camera + Face Detection -------------------- */
+
+async function startCamera(){
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'user', width:{ideal:640}, height:{ideal:480} },
+      audio:false
+    });
+
+    video.srcObject = stream;
+    await video.play();
+
+    fd = new FaceDetection({
+      locateFile:f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`
+    });
+
+    fd.setOptions({ model:'short', minDetectionConfidence:.55 });
+
+    fd.onResults(r => {
+      busy = false;
+      const d = r.detections && r.detections[0];
+      if(d){
+        const b = d.boundingBox;
+        look(-(b.xCenter*2-1), (b.yCenter*2-1)*.9);
+      }
+    });
+
+    cameraLoop();
+  }catch(e){
+    sayStatus('Camera: '+e.name+' '+e.message);
+  }
+}
+
+let last = 0;
+async function cameraLoop(ts){
+  // throttle to ~16 FPS
+  if(ts - last > 60){
+    last = ts;
+    if(fd && video.readyState >= 2 && !busy){
+      busy = true;
+      await fd.send({image:video}).catch(()=>{ busy=false });
+      busy = false;
+    }
+  }
+  requestAnimationFrame(cameraLoop);
+}
+
+/* -------------------- Speech Recognition -------------------- */
+
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function makeRec(){
+  if(!SR) return null;
+  const r = new SR();
+  r.lang = 'nl-NL';
+  r.interimResults = false;
+  r.maxAlternatives = 1;
+  return r;
+}
+
+function stopRecognition(){
+  clearTimeout(restartTimer);
+  if(rec){
+    rec.onend = null;
+    try{ rec.stop() }catch(e){}
+    rec = null;
+  }
+  listening = false;
+}
+
+function startWake(){
+  if(!SR || speaking || asking) return;
+
+  stopRecognition();
+  wakeMode = true;
+
+  mode.textContent = 'Luistert naar “Hey Jellie”';
+  sayStatus('Zeg “Hey Jellie” of tik op het gezicht');
+
+  rec = makeRec();
+  rec.continuous = true;
+
+  rec.onresult = e => {
+    for(let i=e.resultIndex; i<e.results.length; i++){
+      const t = e.results[i][0].transcript.toLowerCase().trim();
+      const clean = t.replace(/[^a-z]/g,'');
+
+      if(clean.includes('heyjell')){
+        stopRecognition();
+        speak('Ja?', startQuestion);
+        return;
+      }
+    }
+  };
+
+  rec.onerror = e => {
+    if(!['no-speech','aborted'].includes(e.error)){
+      sayStatus('Microfoon: '+e.error);
+    }
+  };
+
+  rec.onend = () => {
+    listening = false;
+    if(!speaking && !asking){
+      restartTimer = setTimeout(startWake, 600);
+    }
+  };
+
+  try{
+    rec.start();
+    listening = true;
+  }catch(e){
+    restartTimer = setTimeout(startWake, 800);
+  }
+}
+
+function startQuestion(){
+  if(!SR) return;
+
+  stopRecognition();
+  wakeMode = false;
+
+  mode.textContent = 'Ik luister naar je vraag';
+  sayStatus('Ik luister…');
+
+  rec = makeRec();
+  rec.continuous = false;
+
+  rec.onresult = e => {
+    const t = e.results[0][0].transcript.trim();
+    stopRecognition();
+    ask(t);
+  };
+
+  rec.onerror = () => {
+    sayStatus('Ik hoorde geen vraag. Probeer opnieuw.');
+    restartTimer = setTimeout(startWake, 900);
+  };
+
+  rec.onend = () => listening = false;
+
+  try{
+    rec.start();
+    listening = true;
+  }catch(e){
+    startWake();
+  }
+}
+
+/* -------------------- Gemini API -------------------- */
+
+async function ask(text){
+  asking = true;
+  mode.textContent = 'Jellie denkt na';
+  sayStatus('Jij: '+text);
+
+  try{
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(key)}`;
+
+    const body = {
+      system_instruction:{
+        parts:[{
+          text:'Je bent Jellie, een vriendelijke robot. Antwoord in natuurlijk Nederlands, bondig en geschikt om hardop uit te spreken. Geen markdown.'
+        }]
+      },
+      contents:[{ role:'user', parts:[{text}] }],
+      generationConfig:{ temperature:.8, maxOutputTokens:220 }
+    };
+
+    const resp = await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+
+    const data = await resp.json();
+    if(!resp.ok) throw new Error(data.error?.message || ('HTTP '+resp.status));
+
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const ans = parts.map(p => p.text ?? '').join(' ').trim();
+
+    if(!ans || ans.length < 10){
+      throw new Error('Onvolledig antwoord ontvangen');
+    }
+
+    asking = false;
+    mode.textContent = 'Jellie praat';
+    speak(ans);
+
+  }catch(e){
+    asking = false;
+    speak('Er ging iets mis met mijn AI-verbinding. '+e.message);
+  }
+}
+
+/* -------------------- Tap Activation -------------------- */
+
+function activateByTap(){
+  if($('#setup').style.display !== 'none' || asking || speaking) return;
+  stopRecognition();
+  speak('Ja?', startQuestion);
+}
+
+$('#app').addEventListener('pointerdown', activateByTap);
+
+/* -------------------- Setup -------------------- */
+
+$('#start').onclick = async e => {
+  e.stopPropagation();
+  key = $('#key').value.trim();
+
+  if(!key){
+    sayStatus('Vul eerst je Gemini API-sleutel in');
+    return;
+  }
+
+  localStorage.setItem('jellieGeminiKey', key);
+  $('#setup').style.display = 'none';
+
+  mode.textContent = 'Camera starten';
+  await startCamera();
+
+  speak('Hallo, ik ben Jellie. Zeg Hey Jellie als je iets wilt vragen.', startWake);
+};
+
+const saved = localStorage.getItem('jellieGeminiKey');
+if(saved) $('#key').value = saved;
+
+})();
+</script>
