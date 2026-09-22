@@ -29,12 +29,4 @@ async function ask(text){asking=true;mode.textContent='Jellie denkt na';sayStatu
 function activateByTap(){if($('#setup').style.display!=='none'||asking||speaking)return;stopRecognition();speak('Ja?',startQuestion)}
 $('#app').addEventListener('pointerdown',activateByTap);$('#start').onclick=async e=>{e.stopPropagation();key=$('#key').value.trim();if(!key){sayStatus('Vul eerst je Gemini API-sleutel in');return}localStorage.setItem('jellieGeminiKey',key);$('#setup').style.display='none';mode.textContent='Camera starten';await startCamera();speak('Hallo, ik ben Jellie. Zeg Hey Jellie als je iets wilt vragen.',startWake)};const saved=localStorage.getItem('jellieGeminiKey');if(saved)$('#key').value=saved;
 })();
-  <button onclick="
-speak(
-'Dit is een test. Als je deze hele zin hoort dan werkt de tekst naar spraak functie correct.'
-)
-">
-TTS TEST
-</button>
-
 </script></body></html>
