@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#02050a">
+<title>Jellie v3</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02050a;color:#eaffff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;touch-action:none}
+body{background:radial-gradient(circle at 50% 40%,#173356 0,#07111e 45%,#02050a 100%)}
+button,input{font:inherit}
+#app{position:relative;width:100%;height:100%;display:grid;place-items:center}
+.halo{position:absolute;width:min(85vw,800px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle,#4de9ff16 0 35%,transparent 36% 52%,#826aff10 53% 55%,transparent 56%);animation:pulse 4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.04);opacity:.7}}
+#face{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:clamp(55px,10vh,105px);cursor:pointer;user-select:none}
+#eyes{display:flex;gap:clamp(32px,9vw,130px)}
+.eye{position:relative;width:clamp(125px,26vw,300px);height:clamp(100px,21vw,235px);border:clamp(5px,1vw,11px) solid #62edff;border-radius:48% 48% 44% 44%/56% 56% 45% 45%;background:#04111d;overflow:hidden;box-shadow:0 0 18px #5deaff,0 0 55px #00c8ff77,inset 0 0 28px #59eaff55}
+.iris{position:absolute;left:50%;top:50%;width:42%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,#02060a 0 26%,#c8ffff 28% 34%,#28dfff 36% 61%,#073a57 64% 100%);box-shadow:0 0 22px #52eaff;will-change:transform}
+.glint{position:absolute;left:22%;top:15%;width:22%;aspect-ratio:1;border-radius:50%;background:#fff}
+.lid{position:absolute;z-index:4;left:-3%;width:106%;height:54%;background:linear-gradient(#07111e,#11243a);transition:transform .12s}
+.lid.top{top:-2%;border-bottom:3px solid #55eaff;transform:translateY(-105%)}
+.lid.bottom{bottom:-2%;border-top:3px solid #55eaff;transform:translateY(105%)}
+.eye.blink .top{transform:translateY(0)}.eye.blink .bottom{transform:translateY(0)}
+#mouth{width:clamp(115px,21vw,250px);height:clamp(24px,4vw,52px);border-bottom:clamp(7px,1.1vw,13px) solid #55eaff;border-radius:0 0 60% 60%;filter:drop-shadow(0 0 10px #55eaff)}
+#mouth.talk{animation:talk .18s infinite alternate ease-in-out}
+@keyframes talk{to{width:clamp(85px,17vw,200px);height:clamp(50px,8vw,88px);border:7px solid #55eaff;border-radius:50%;background:#03121d}}
+#status{position:fixed;left:50%;bottom:max(22px,env(safe-area-inset-bottom));transform:translateX(-50%);width:min(900px,90%);max-height:24vh;overflow:auto;text-align:center;color:#bff8ff;font-size:clamp(14px,2.4vw,22px);line-height:1.35;text-shadow:0 0 10px #54e9ff;z-index:5}
+.badge{position:fixed;top:max(12px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);padding:8px 14px;border:1px solid #56eaff55;border-radius:999px;background:#081522dd;color:#aef6ff;z-index:5;font-size:13px;white-space:nowrap}
+#setup{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:20px;background:#02060aee}
+.card{width:min(540px,100%);padding:25px;border:1px solid #59eaff55;border-radius:25px;background:#091522;box-shadow:0 0 50px #00c8ff22;text-align:center}
+.card h1{margin:0 0 10px}.card p{color:#b5d5df;line-height:1.5}.card input{width:100%;padding:14px;border-radius:12px;border:1px solid #54e9ff77;background:#020811;color:white;font-size:16px}
+.card button{position:relative;z-index:30;width:100%;margin-top:12px;padding:15px;border:0;border-radius:14px;background:linear-gradient(135deg,#0b8daf,#5556d8);color:white;font-size:17px;font-weight:750;cursor:pointer;touch-action:manipulation}
+.card button:active{transform:scale(.985)}.card button:disabled{opacity:.55}
+.small{font-size:12px!important;opacity:.72}video{position:fixed;width:1px;height:1px;opacity:0;pointer-events:none}
+@media(orientation:portrait){.eye{width:37vw;height:30vw}#eyes{gap:8vw}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="halo"></div>
+  <div class="badge" id="mode">Starten...</div>
+  <div id="face" aria-label="Tik om Jellie een vraag te stellen">
+    <div id="eyes">
+      <div class="eye"><div class="iris"><div class="glint"></div></div><div class="lid top"></div><div class="lid bottom"></div></div>
+      <div class="eye"><div class="iris"><div class="glint"></div></div><div class="lid top"></div><div class="lid bottom"></div></div>
+    </div>
+    <div id="mouth"></div>
+  </div>
+  <div id="status">Druk op Jellie starten</div>
+  <video id="video" autoplay playsinline muted></video>
+</div>
+<section id="setup">
+  <div class="card">
+    <h1>Hallo, ik ben Jellie v3</h1>
+    <p>Deze versie spreekt ook lange antwoorden volledig uit. Zeg na het starten <b>“Hey Jellie”</b>, wacht op “Ja?”, en stel je vraag. Je kunt ook op het gezicht tikken.</p>
+    <input id="key" type="password" autocomplete="off" placeholder="Plak hier je Gemini API-sleutel">
+    <button id="start" type="button">Jellie starten</button>
+    <p class="small">De sleutel wordt alleen lokaal in deze browser opgeslagen. Deel dit bestand niet met een ingevulde sleutel.</p>
+  </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
+<script>
+(()=>{'use strict';
+const $=s=>document.querySelector(s);
+const eyes=[...document.querySelectorAll('.eye')],irises=[...document.querySelectorAll('.iris')];
+const mouth=$('#mouth'),status=$('#status'),mode=$('#mode'),video=$('#video'),setup=$('#setup'),startButton=$('#start');
+let key='',fd=null,stream=null,busy=false,tx=0,ty=0,cx=0,cy=0,rec=null,listening=false,asking=false,speaking=false,restartTimer=null;
+let speechSession=0,voices=[];
+
+function sayStatus(t){status.textContent=t}
+function look(x,y){tx=Math.max(-1,Math.min(1,x));ty=Math.max(-1,Math.min(1,y))}
+function anim(){cx+=(tx-cx)*.14;cy+=(ty-cy)*.14;irises.forEach(i=>i.style.transform=`translate(calc(-50% + ${cx*34}%),calc(-50% + ${cy*27}%))`);requestAnimationFrame(anim)}
+anim();
+function blink(){eyes.forEach(e=>e.classList.add('blink'));setTimeout(()=>eyes.forEach(e=>e.classList.remove('blink')),150)}
+(function bl(){setTimeout(()=>{blink();bl()},2800+Math.random()*3800)})();
+
+function loadVoices(){voices=speechSynthesis.getVoices()||[]}
+loadVoices();
+if('speechSynthesis' in window)speechSynthesis.onvoiceschanged=loadVoices;
+function dutchVoice(){return voices.find(v=>/^nl-NL$/i.test(v.lang))||voices.find(v=>/^nl/i.test(v.lang))||null}
+
+function splitForSpeech(text,maxLen=150){
+  const clean=String(text||'').replace(/[*_#`~]/g,'').replace(/\s+/g,' ').trim();
+  if(!clean)return [];
+  const sentences=clean.match(/[^.!?;:]+[.!?;:]*/g)||[clean];
+  const chunks=[];
+  for(const raw of sentences){
+    let part=raw.trim();
+    while(part.length>maxLen){
+      let cut=part.lastIndexOf(' ',maxLen);
+      if(cut<60)cut=maxLen;
+      chunks.push(part.slice(0,cut).trim());
+      part=part.slice(cut).trim();
+    }
+    if(part)chunks.push(part);
+  }
+  return chunks;
+}
+
+function stopSpeech(){
+  speechSession++;
+  try{speechSynthesis.cancel()}catch(e){}
+  mouth.classList.remove('talk');
+  speaking=false;
+}
+
+function speak(text,after){
+  stopRecognition();
+  stopSpeech();
+  const mySession=speechSession;
+  const chunks=splitForSpeech(text);
+  sayStatus(text);
+  if(!chunks.length){if(after)after();else startWake();return}
+  speaking=true;
+  mode.textContent='Jellie praat';
+  mouth.classList.add('talk');
+  let index=0;
+  const voice=dutchVoice();
+
+  function finish(){
+    if(mySession!==speechSession)return;
+    mouth.classList.remove('talk');
+    speaking=false;
+    setTimeout(()=>{if(mySession!==speechSession)return;if(after)after();else startWake()},400);
+  }
+
+  function next(){
+    if(mySession!==speechSession)return;
+    if(index>=chunks.length){finish();return}
+    const current=chunks[index++];
+    const u=new SpeechSynthesisUtterance(current);
+    u.lang='nl-NL';u.rate=.95;u.pitch=.86;u.volume=1;
+    if(voice)u.voice=voice;
+    let completed=false;
+    const expected=Math.max(3500,current.length*115);
+    const watchdog=setTimeout(()=>{
+      if(completed||mySession!==speechSession)return;
+      completed=true;
+      try{speechSynthesis.cancel()}catch(e){}
+      setTimeout(next,120);
+    },expected);
+    const done=()=>{
+      if(completed||mySession!==speechSession)return;
+      completed=true;clearTimeout(watchdog);setTimeout(next,90);
+    };
+    u.onend=done;
+    u.onerror=e=>{
+      if(e.error==='canceled'&&mySession!==speechSession)return;
+      done();
+    };
+    try{speechSynthesis.speak(u)}catch(e){done()}
+  }
+  setTimeout(next,80);
+}
+
+async function startCamera(){
+  if(!navigator.mediaDevices?.getUserMedia){sayStatus('Camera wordt niet ondersteund in deze browser. Jellie kan wel zonder camera werken.');return}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=stream;await video.play();
+    if(typeof FaceDetection==='undefined')return;
+    fd=new FaceDetection({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${f}`});
+    fd.setOptions({model:'short',minDetectionConfidence:.55});
+    fd.onResults(r=>{busy=false;const d=r.detections&&r.detections[0];if(d){const b=d.boundingBox;look(-(b.xCenter*2-1),(b.yCenter*2-1)*.9)}});
+    cameraLoop();
+  }catch(e){sayStatus('Camera niet gestart: '+e.name+'. Jellie werkt verder zonder camera.')}
+}
+async function cameraLoop(){if(fd&&video.readyState>=2&&!busy){busy=true;try{await fd.send({image:video})}catch(e){busy=false}}requestAnimationFrame(cameraLoop)}
+
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function makeRec(){if(!SR)return null;const r=new SR();r.lang='nl-NL';r.interimResults=false;r.maxAlternatives=1;return r}
+function stopRecognition(){clearTimeout(restartTimer);if(rec){rec.onend=null;try{rec.abort()}catch(e){}rec=null}listening=false}
+function startWake(){
+  if(!SR){mode.textContent='Tik op het gezicht';sayStatus('Spraakherkenning is niet beschikbaar. Tik op het gezicht om het opnieuw te proberen.');return}
+  if(speaking||asking)return;
+  stopRecognition();mode.textContent='Luistert naar “Hey Jellie”';sayStatus('Zeg “Hey Jellie” of tik op het gezicht');
+  rec=makeRec();rec.continuous=true;
+  rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript.toLowerCase().trim();if(t.includes('hey jellie')||t.includes('hé jellie')||t.includes('hee jellie')||t.includes('hey jelly')){stopRecognition();speak('Ja?',startQuestion);return}}};
+  rec.onerror=e=>{if(!['no-speech','aborted'].includes(e.error))sayStatus('Microfoon: '+e.error)};
+  rec.onend=()=>{listening=false;if(!speaking&&!asking)restartTimer=setTimeout(startWake,650)};
+  try{rec.start();listening=true}catch(e){restartTimer=setTimeout(startWake,900)}
+}
+function startQuestion(){
+  if(!SR){startWake();return}
+  stopRecognition();mode.textContent='Ik luister naar je vraag';sayStatus('Ik luister...');rec=makeRec();rec.continuous=false;
+  rec.onresult=e=>{const t=e.results[0][0].transcript.trim();stopRecognition();ask(t)};
+  rec.onerror=e=>{sayStatus('Ik hoorde geen vraag. Probeer opnieuw.');restartTimer=setTimeout(startWake,1000)};
+  rec.onend=()=>{listening=false};
+  try{rec.start();listening=true}catch(e){startWake()}
+}
+
+async function ask(text){
+  asking=true;mode.textContent='Jellie denkt na';sayStatus('Jij: '+text);
+  try{
+    const url=`https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(key)}`;
+    const body={system_instruction:{parts:[{text:'Je bent Jellie, een vriendelijke en speelse robot op een tablet. Antwoord altijd in natuurlijk Nederlands en geschikt om hardop uit te spreken. Gebruik geen markdown. Geef een duidelijk en volledig antwoord, maar vermijd onnodige herhaling.'}]},contents:[{role:'user',parts:[{text}]}],generationConfig:{temperature:.8,maxOutputTokens:700}};
+    const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await resp.json();
+    if(!resp.ok)throw new Error(data.error?.message||('HTTP '+resp.status));
+    const ans=data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join(' ').trim();
+    if(!ans)throw new Error('Geen antwoord ontvangen');
+    asking=false;speak(ans);
+  }catch(e){asking=false;speak('Er ging iets mis met mijn AI-verbinding. '+e.message)}
+}
+
+function activateByTap(e){
+  if(setup.style.display!=='none'||asking)return;
+  if(speaking){stopSpeech();setTimeout(startWake,250);return}
+  stopRecognition();speak('Ja?',startQuestion);
+}
+$('#face').addEventListener('pointerup',activateByTap);
+
+async function startJellie(e){
+  if(e){e.preventDefault();e.stopPropagation()}
+  if(startButton.disabled)return;
+  key=$('#key').value.trim();
+  if(!key){sayStatus('Vul eerst je Gemini API-sleutel in');$('#key').focus();return}
+  startButton.disabled=true;startButton.textContent='Jellie start...';
+  try{localStorage.setItem('jellieGeminiKey',key)}catch(err){}
+  setup.style.display='none';mode.textContent='Camera starten';
+  await startCamera();
+  speak('Hallo, ik ben Jellie. Zeg Hey Jellie als je iets wilt vragen.',startWake);
+}
+startButton.addEventListener('click',startJellie);
+startButton.addEventListener('touchend',e=>{e.preventDefault();startJellie(e)},{passive:false});
+const saved=localStorage.getItem('jellieGeminiKey');if(saved)$('#key').value=saved;
+window.addEventListener('beforeunload',()=>{stopSpeech();stopRecognition();if(stream)stream.getTracks().forEach(t=>t.stop())});
+})();
+</script>
+</body>
+</html>
