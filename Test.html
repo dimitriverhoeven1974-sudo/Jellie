@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Jellie TTS Fix Test</title>
+<style>
+body{font-family:Arial,sans-serif;background:#111;color:#fff;padding:20px}
+button{padding:14px 20px;font-size:18px;margin:5px}
+pre{background:#222;padding:15px;border-radius:10px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>Jellie Definitieve speak() Test</h1>
+<button onclick="testSpeak()">Test Jellie Stem</button>
+<pre id="log">Klaar...</pre>
+<script>
+let speaking=false;
+function stopRecognition(){ console.log('recognition stopped'); }
+function startWake(){ document.getElementById('log').textContent += '
+Wake word opnieuw gestart'; }
+function speak(text, after){
+ if(!text) return;
+ speaking=true;
+ stopRecognition();
+ speechSynthesis.cancel();
+ document.getElementById('log').textContent='SPREEK: '+text;
+ const utterance=new SpeechSynthesisUtterance(text);
+ utterance.lang='nl-NL';
+ utterance.rate=0.9;
+ utterance.pitch=0.9;
+ utterance.volume=1;
+ utterance.onstart=()=>{
+  document.getElementById('log').textContent+='
+TTS START';
+ };
+ utterance.onend=()=>{
+  document.getElementById('log').textContent+='
+TTS EINDE';
+  speaking=false;
+  setTimeout(()=>{ if(after){after()} else {startWake()} },1000);
+ };
+ utterance.onerror=(e)=>{
+  document.getElementById('log').textContent+='
+TTS FOUT: '+e.error;
+  speaking=false;
+ };
+ speechSynthesis.speak(utterance);
+}
+function testSpeak(){
+ speak('Hallo Dimitri. Dit is de definitieve Jellie tekst naar spraak test. Als je deze volledige tekst hoort zonder onderbrekingen, dan werkt de aangepaste speak functie correct.');
+}
+</script>
+</body>
+</html>
