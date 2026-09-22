@@ -1,7 +1,60 @@
-<button onclick="
-speak(
-'Dit is een test. Als je deze hele zin hoort dan werkt de tekst naar spraak functie correct.'
-)
-">
+<!DOCTYPE html>
+<html>
+<body>
+
+<button onclick="testTTS()">
 TTS TEST
 </button>
+
+<pre id="out"></pre>
+
+<script>
+
+function testTTS(){
+
+    const voices =
+        speechSynthesis.getVoices();
+
+    document.getElementById("out").textContent =
+        "Aantal stemmen: " +
+        voices.length +
+        "\n\n" +
+        voices.map(v =>
+            v.name + " | " + v.lang
+        ).join("\n");
+
+    const u =
+        new SpeechSynthesisUtterance(
+            "Hallo Dimitri. Ik ben Jellie."
+        );
+
+    u.lang = "nl-NL";
+
+    u.onstart = () => {
+
+        console.log("start");
+
+    };
+
+    u.onend = () => {
+
+        console.log("einde");
+
+    };
+
+    u.onerror = e => {
+
+        alert(
+            "TTS fout: " +
+            e.error
+        );
+
+    };
+
+    speechSynthesis.speak(u);
+}
+
+</script>
+
+</body>
+</html>
